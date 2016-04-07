@@ -7,7 +7,7 @@ with open(os.path.join(here, 'VERSION')) as f:
     VERSION = f.read()
 
 README = open(os.path.join(here, 'README.md')).read()
-CHANGES = open(os.path.join(here, 'CHANGES.md')).read()
+CHANGES = open(os.path.join(here, 'CHANGES')).read()
 
 requires = [
     'sqlalchemy==0.9.4',

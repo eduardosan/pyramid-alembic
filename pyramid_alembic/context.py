@@ -3,15 +3,15 @@ import os
 import shutil
 from alembic import autogenerate, util
 from alembic.config import Config
-from alembic.environment import EnvironmentContext
+from alembic.runtime.environment import EnvironmentContext
 from alembic.operations import Operations
-from alembic.revision import ResolutionError
+from alembic.script.revision import ResolutionError
 from alembic.script import ScriptDirectory
 from sqlalchemy.engine import create_engine
 
 try:
     from collections.abc import Iterable
-except ImportError:
+except ImportError as e:
     from collections import Iterable
 
 
@@ -27,10 +27,11 @@ class Alembic(object):
     :param run_mkdir: whether to run :meth:`mkdir` during :meth:`init_app`
     """
 
-    def __init__(self, app_config, metadata, run_mkdir=True):
+    def __init__(self, app_config, application_dir, metadata, run_mkdir=True):
         self.run_mkdir = run_mkdir
         self.app_config = app_config
         self.metadata = metadata
+        self.application_dir = application_dir
 
         if run_mkdir is True:
             self.mkdir()
@@ -43,11 +44,19 @@ class Alembic(object):
         c = Config()
 
         script_location = self.app_config.get('script_location')
+        if not os.path.isabs(script_location) and ':' not in script_location:
+            script_location = os.path.join(self.application_dir, script_location)
+
         version_locations = [script_location]
 
-        for item in self.app_config.get('version_locations'):
-            version_location = item if isinstance(item, string_types) else item[1]
-            version_locations.append(version_location)
+        if self.app_config.get('version_locations') is not None:
+            for item in self.app_config.get('version_locations'):
+                version_location = item if isinstance(item, string_types) else item[1]
+
+                if not os.path.isabs(version_location) and ':' not in version_location:
+                    version_location = os.path.join(self.application_dir, version_location)
+
+                version_locations.append(version_location)
 
         c.set_main_option('script_location', script_location)
         c.set_main_option('version_locations', ','.join(version_locations))
@@ -97,12 +106,12 @@ class Alembic(object):
         :param fn: use this function to control what migrations are run
         :param kwargs: extra arguments passed to revision function
         """
-        engine = create_engine(self.app_config('sqlalchemy.url'), echo=False)
+        engine = create_engine(self.app_config.get('sqlalchemy.url'), echo=False)
         connection = engine.connect()
 
         env = self.env
         env.configure(
-            connection=connection, target_metadata=self.metadata
+            connection=connection, target_metadata=self.metadata, fn=fn
         )
 
         try:
