@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import os
 import shutil
+import sys
 from alembic import autogenerate, util
 from alembic.config import Config
 from alembic.runtime.environment import EnvironmentContext
@@ -13,6 +14,13 @@ try:
     from collections.abc import Iterable
 except ImportError as e:
     from collections import Iterable
+
+PY2 = sys.version_info[0] == 2
+
+if not PY2:
+    string_types = (str,)
+else:
+    string_types = (str, unicode)
 
 
 class Alembic(object):
@@ -82,7 +90,7 @@ class Alembic(object):
         """
         Get the Alembic :class:`~alembic.migration.MigrationContext` for the current app.
         """
-        engine = create_engine(self.app_config('sqlalchemy.url'), echo=False)
+        engine = create_engine(self.app_config['sqlalchemy.url'], echo=False)
         connection = engine.connect()
 
         env = self.env
@@ -209,6 +217,7 @@ class Alembic(object):
         target = str(target)
 
         def do_upgrade(revision, context):
+            print("111111111111111111111111111111111111111111:\n%s" % context)
             return self.script._upgrade_revs(target, revision)
 
         self.run_migrations(do_upgrade)
@@ -269,7 +278,7 @@ class Alembic(object):
                     parent[i] = '{}@{}'.format(branch, item)
 
             if not path:
-                branch_path = dict(item for item in current_app.config['ALEMBIC']['version_locations'] if not isinstance(item, string_types)).get(branch)
+                branch_path = dict(item for item in self.config['ALEMBIC']['version_locations'] if not isinstance(item, string_types)).get(branch)
 
                 if branch_path:
                     path = branch_path
@@ -289,7 +298,7 @@ class Alembic(object):
 
         # relative path is relative to app root
         if path and not os.path.isabs(path) and ':' not in path:
-            path = os.path.join(current_app.root_path, path)
+            path = os.path.join(self.application_dir, path)
 
         template_args = {
             'config': self.config
